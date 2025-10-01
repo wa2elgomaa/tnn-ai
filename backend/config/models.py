@@ -20,6 +20,10 @@ class SuggestResponse(BaseModel):
     suggestions: List[TagOut]
     meta: Optional[Any] = None
 
+class APIResponse(BaseModel):
+    data: Optional[Any] = None
+    meta: Optional[Any] = None
+
 class FeedbackItem(BaseModel):
     article_id: str
     text_hash: str

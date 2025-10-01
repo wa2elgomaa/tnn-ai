@@ -22,6 +22,9 @@ class Settings(BaseModel):
     STORAGE_DIR: str = os.getenv("STORAGE_DIR", "./storage")
     DEVICE: str = os.getenv("DEVICE", "cpu")
     NORMALIZE_ARABIC: bool = os.getenv("NORMALIZE_ARABIC", "true").lower() == "true"
+    CMS_BASE_URL: str = os.getenv("CMS_BASE_URL")
+    ARTICLE_API: str = os.getenv("ARTICLE_API")
+    CMS_TOKEN: str = os.getenv("CMS_TOKEN")
 
     @field_validator("STORAGE_DIR")
     @classmethod
