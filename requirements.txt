@@ -1,0 +1,15 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+pandas==2.2.2
+numpy==1.26.4
+# FAISS optional; skipped on Apple Silicon (fallback uses NumPy)
+faiss-cpu==1.8.0.post1; platform_system != "Darwin" or platform_machine == "x86_64"
+# Stable HF stack on macOS arm64
+transformers==4.44.2
+sentence-transformers==3.0.1
+# Tokenizers 0.22.x can segfault on macOS in some setups; pin to 0.19.x
+tokenizers==0.19.1
+# Torch 2.3.x is stable on macOS for CPU; avoid MPS by DEVICE=cpu
+torch==2.3.1
+pydantic==2.9.2
+python-dotenv==1.0.1
