@@ -25,6 +25,11 @@ class Settings(BaseModel):
     CMS_BASE_URL: str = os.getenv("CMS_BASE_URL")
     ARTICLE_API: str = os.getenv("ARTICLE_API")
     CMS_TOKEN: str = os.getenv("CMS_TOKEN")
+    REDIS_HOST: str = os.getenv("REDIS_HOST")
+    REDIS_PORT: str = os.getenv("REDIS_PORT")
+    REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD")
+    CACHE_TTL_SECONDS: int = os.getenv("CACHE_TTL_SECONDS", "300")
+    TOPK_CANDIDATES: int = os.getenv("TOPK_CANDIDATES", 100)
 
     @field_validator("STORAGE_DIR")
     @classmethod

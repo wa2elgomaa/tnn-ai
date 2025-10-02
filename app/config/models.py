@@ -4,9 +4,14 @@ from typing import List, Literal, Optional, Any
 class SuggestRequest(BaseModel):
     text: Optional[str] = Field(None, description="Article text (title + body or summary)")
     articleId: str = Field(None, description="Article id")
-    k: int = Field(5, ge=1, le=50, description="How many tag suggestions to return")
+    limit: int = Field(5, ge=1, le=50, description="How many tag suggestions to return")
     min_score: float = Field(0.2, ge=-1.0, le=1.0, description="Minimum cosine score to include")
     use_reranker: Optional[bool] = Field(None, description="Override server default to use cross-encoder reranker")
+    cursor: Optional[str] = None     # opaque token for next page
+    offset: Optional[int] = 0               # fallback if you prefer simple offset
+    widen: Optional[bool] = False           # relax filters / boost lexical if true
+    exclude_slugs: Optional[list[str]] = [] # already shown or disliked in-session
+
 
 class TagOut(BaseModel):
     slug: str
@@ -19,6 +24,8 @@ class TagOut(BaseModel):
 class SuggestResponse(BaseModel):
     data: List[TagOut]
     meta: Optional[Any] = None
+    next_cursor: Optional[str] = None
+    has_more: Optional[bool] = False
 
 class APIResponse(BaseModel):
     data: Optional[Any] = None

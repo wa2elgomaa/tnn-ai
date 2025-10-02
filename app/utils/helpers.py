@@ -76,3 +76,26 @@ def deep_merge(a, b, unique_key="slug"):
         return copy.deepcopy(b)
 
 
+
+def mmr_diversify(items, id_fn, score_fn, alpha=0.8):
+    # items: list of dicts; returns a re-ordered list
+    selected, seen = [], set()
+    cand = items[:]  # assume already sorted by score desc
+    while cand:
+        if not selected:
+            pick = cand.pop(0)
+        else:
+            # penalize items too similar by slug prefix/overlap (cheap heuristic)
+            def penalty(x):
+                slug = id_fn(x)
+                return max(1.0 if any(slug.startswith(id_fn(s)[:5]) for s in selected) else 0.0, 0.0)
+            cand.sort(key=lambda x: alpha*score_fn(x) - (1-alpha)*penalty(x), reverse=True)
+            pick = cand.pop(0)
+        if id_fn(pick) in seen:
+            continue
+        seen.add(id_fn(pick))
+        selected.append(pick)
+        if len(selected) >= len(items):
+            break
+    return selected
+    
