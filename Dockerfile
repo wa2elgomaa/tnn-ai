@@ -27,6 +27,7 @@ RUN pip install --upgrade pip setuptools wheel && \
 COPY app ./app
 COPY data ./app/data
 COPY .env ./app/.env
+COPY storage ./app/storage
 CMD ls ./app
 # ENV PYTHONPATH=/app
 

@@ -17,7 +17,7 @@ class TagOut(BaseModel):
     reason: Optional[str] = None
 
 class SuggestResponse(BaseModel):
-    suggestions: List[TagOut]
+    data: List[TagOut]
     meta: Optional[Any] = None
 
 class APIResponse(BaseModel):

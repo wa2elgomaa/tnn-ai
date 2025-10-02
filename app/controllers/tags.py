@@ -34,7 +34,7 @@ async def suggest(req: SuggestRequest) -> SuggestResponse:
     items, meta = await suggestTags(req, suggester)
     dt = time.time() - t0
     return SuggestResponse(
-        suggestions=[TagOut(**i) for i in items],
+        data=[TagOut(**i) for i in items],
         meta={"elapsed_ms": int(dt * 1000), **meta}
     )
 
@@ -45,7 +45,7 @@ async def suggest(articleId: str, k: int = 5, min_score: float = 0.2, use_rerank
     items, meta = await suggestTags(req, suggester)
     dt = time.time() - t0
     return SuggestResponse(
-        suggestions=[TagOut(**i) for i in items],
+        data=[TagOut(**i) for i in items],
         meta={"elapsed_ms": int(dt * 1000), **meta}
     )
 

@@ -8,6 +8,7 @@ services:
     env_file: .env
     volumes:
       - ./data:/app/data
+      - ./storage:/app/storage
     # depends_on: [postgres, redis]
     ports: ["8000:8000"]
     command: >
