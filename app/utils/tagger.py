@@ -193,6 +193,7 @@ class TagSuggester:
             self.index.add(self.embeddings)
 
     def _build_from_csv(self):
+        print(f"Loading tags from {os.path.curdir}")
         if not os.path.exists(settings.TAGS_CSV):
             raise FileNotFoundError(f"CSV not found at {settings.TAGS_CSV}")
         # read CSV robustly: treat everything as str & preserve empty strings

@@ -4,6 +4,6 @@
       "builder": "NIXPACKS"
     },
     "deploy": {
-      "startCommand": "python -m uvicorn backend.main:app --port 8000 --loop asyncio --http h11 --workers 1"
+      "startCommand": "python -m uvicorn app.main:app --port 8000 --loop asyncio --http h11 --workers 1"
     }
   }

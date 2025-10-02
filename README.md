@@ -13,7 +13,7 @@ pip install -r requirements.txt
 # run without uvloop/httptools and single-process:
 UVICORN_NO_UVLOOP=1 UVICORN_NO_HTTP_TOOLS=1 TOKENIZERS_PARALLELISM=false \
 HF_HUB_OFFLINE=1 EMBEDDING_MODEL=./models/paraphrase-multilingual-MiniLM-L12-v2 \
-python -m uvicorn backend.main:app --port 8000 --loop asyncio --http h11 --workers 1
+python -m uvicorn app.main:app --port 8000 --loop asyncio --http h11 --workers 1
 ```
 
 ## Models 
@@ -86,7 +86,7 @@ COPY app ./app
 COPY data ./data
 COPY .env.example ./.env
 EXPOSE 8000
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ## Tuning
@@ -102,7 +102,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 # edit .env if needed (path to CSV, model name)
-uvicorn backend.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 
 Open: http://localhost:8000/docs
@@ -172,7 +172,7 @@ COPY .env.example ./.env
 
 ENV PORT=8000
 EXPOSE 8000
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 Build & run:
