@@ -1,22 +1,4 @@
 services:
-  api:
-    container_name: tnnai-api
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    image: tnnai:latest
-    env_file: .env
-    volumes:
-      - ./data:/app/data
-      - ./storage:/app/storage
-    # depends_on: [postgres, redis]
-    ports: ["8000:8000"]
-    command: >
-      sh -c "UVICORN_NO_UVLOOP=1 UVICORN_NO_HTTP_TOOLS=1
-             python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
-    networks:
-      - tnn_ai
-
   # es01:
   #   container_name: tnnai-es-01
   #   profiles:
@@ -96,9 +78,9 @@ services:
   #   container_name: tnnai-pg
   #   # restart: unless-stopped
   #   environment:
-  #     POSTGRES_DB: ${DATABASE_NAME}
-  #     POSTGRES_USER: ${DATABASE_USERNAME}
-  #     POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+  #     POSTGRES_DB: ${POSTGRES_DBNAME}
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
   #   ports:
   #     - "${POSTGRES_PORT}:5432"
   #   networks:
@@ -126,19 +108,20 @@ services:
       retries: 3
       start_period: 10s
 
-  # ollama: # optional local LLM support
-  #   platform: linux/amd64
-  #   image: ollama/ollama
-  #   environment:
-  #     - OLLAMA_NUM_GPU=${OLLAMA_NUM_GPU}
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 16g
-  #   ports:
-  #     - "11434:11434"
-  #   volumes:
-  #     - ollama_data:/root/.ollama
+  ollama: # optional local LLM support
+    platform: linux/amd64
+    image: ollama/ollama
+    environment:
+      - OLLAMA_NUM_GPU=${OLLAMA_NUM_GPU}
+      # - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE}
+    deploy:
+      resources:
+        limits:
+          memory: 16g
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
 
 volumes:
   ollama_data:
@@ -159,5 +142,5 @@ volumes:
     driver: local
 
 networks:
-  tnn_ai: 
+  tnn_ai:
     driver: bridge

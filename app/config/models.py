@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal, Optional, Any
+from typing import List, Literal, Optional, Any, Dict
 
 class SuggestRequest(BaseModel):
     text: Optional[str] = Field(None, description="Article text (title + body or summary)")
@@ -41,3 +41,9 @@ class FeedbackItem(BaseModel):
 
 class FeedbackBatch(BaseModel):
     items: List[FeedbackItem]
+
+
+
+class ChatRequest(BaseModel):
+    messages: List[Dict[str, Any]]
+    articleId: Optional[str] = None

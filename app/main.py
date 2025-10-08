@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .controllers.tags import get as get_tags_router
 from .controllers.feedback import get as get_feedback_router
 from .controllers.cms import get as get_cms_router
+from .controllers.chat import get as get_chat_router
 
 
 
@@ -19,3 +20,4 @@ app.add_middleware(
 app.include_router(get_tags_router())
 app.include_router(get_feedback_router())
 app.include_router(get_cms_router())
+app.include_router(get_chat_router())

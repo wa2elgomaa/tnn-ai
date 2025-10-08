@@ -2,19 +2,6 @@
 
 FastAPI service that suggests tags from a controlled taxonomy (`tags.csv`) given article text. Uses multilingual sentence embeddings + cosine similarity. Prefers FAISS when available; otherwise falls back to a NumPy inner‑product index (works great on macOS Apple Silicon without extra installs).
 
-## Quick start
-
-```bash
-# make sure this python is your new 3.11+, not /Applications/Xcode.../3.9
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
-# run without uvloop/httptools and single-process:
-UVICORN_NO_UVLOOP=1 UVICORN_NO_HTTP_TOOLS=1 TOKENIZERS_PARALLELISM=false \
-HF_HUB_OFFLINE=1 EMBEDDING_MODEL=./models/paraphrase-multilingual-MiniLM-L12-v2 \
-python -m uvicorn app.main:app --port 8000 --loop asyncio --http h11 --workers 1
-```
 
 ## Models 
 sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
@@ -23,14 +10,37 @@ intfloat/multilingual-e5-base
 BAAI/bge-base-en-v1.5
 
 
-Open: http://localhost:8000/docs
 
 # Download local models 
 
 ```bash
 pip install huggingface_hub
 huggingface-cli download intfloat/e5-base-v2  --local-dir ./models/intfloat/e5-base-v2
+huggingface-cli download cross-encoder/ms-marco-MiniLM-L-6-v2  --local-dir ./models/cross-encoder/ms-marco-MiniLM-L-6-v2
 ```
+
+# Using Ollama for GPT-OSS models 
+```bash
+docker exec tnn-ai-ollama-1 ollama pull openai/gpt-oss-20b:Q4_K_M
+```
+
+## Quick start
+
+```bash
+# make sure this python is your new 3.11+, not /Applications/Xcode.../3.9
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+# # run without uvloop/httptools and single-process:
+# UVICORN_NO_UVLOOP=1 UVICORN_NO_HTTP_TOOLS=1 TOKENIZERS_PARALLELISM=false \
+# HF_HUB_OFFLINE=1 EMBEDDING_MODEL=./models/paraphrase-multilingual-MiniLM-L12-v2 \
+python -m uvicorn app.main:app --port 8000 --loop asyncio --http h11 --workers 1
+```
+
+
+Open: http://localhost:8000/docs
+
 
 ### Test
 ```bash
