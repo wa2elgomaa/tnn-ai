@@ -50,5 +50,16 @@ async def chat(req: ChatRequest) -> Dict[str, str]:
     # return {"status": "ok", "response": response}
 
 
+@chat_router.post("/completion", response_model=APIResponse)
+async def completion(req: ChatRequest) -> Dict[str, str]:
+    chatService = ChatService()
+
+    event_generator = chatService.completion(
+        messages=req.messages, articleId=req.articleId
+    )
+    # Return a Server-Sent Event (SSE) compatible stream
+    return StreamingResponse(event_generator, media_type="text/event-stream")
+
+
 def get():
     return chat_router

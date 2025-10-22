@@ -12,9 +12,11 @@ load_dotenv(override=False)
 
 
 class Settings(BaseModel):
+    CDN_DOMAIN: str = os.getenv("CDN_DOMAIN")
     TAGS_CSV: str = os.getenv("TAGS_CSV")
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL")
     CHAT_MODEL: str = os.getenv("CHAT_MODEL")
+    COMPLETION_MODEL: str = os.getenv("COMPLETION_MODEL")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL")
     TOKENIZERS_PARALLELISM: bool = (
         os.getenv("TOKENIZERS_PARALLELISM", "false").lower() == "true"

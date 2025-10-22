@@ -56,7 +56,7 @@ async def suggestTags(req: SuggestRequest, suggester: TagSuggester) -> Tuple[Lis
         if articleId is not None and not articleContent:
             params = {"articleId": articleId, "query": dumps({"_id": articleId})}
             content = await run_in_threadpool(fetch_article_content, params)
-            articleContent = article_text(content)
+            articleContent = article_text(content, useHeadlines=req.useHeadlines, limit=req.words_limit)
 
         if not articleContent:
             return SuggestResponse(data=[], meta={})
