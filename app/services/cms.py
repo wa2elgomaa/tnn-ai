@@ -108,8 +108,12 @@ def autoTagArticleBody(
     content_elements = articleBody.get("ans", {}).get("content_elements", [])
     tags_inserted = []
     if len(content_elements) > 0:
-        for elem in content_elements:
-            if elem.get("type") != "text":
+        first_paragraph_index = content_elements.index(
+            lambda x: x.get("type") == "text"
+        )
+        print("first_paragraph_index ->", first_paragraph_index)
+        for index, elem in enumerate(content_elements):
+            if elem.get("type") != "text" or index == first_paragraph_index:
                 continue
 
             text = elem.get("content", "")

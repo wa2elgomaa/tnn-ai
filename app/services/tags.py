@@ -21,19 +21,30 @@ log = logging.getLogger(__name__)
 def _canonicalize_text(text: str) -> str:
     if not text:
         return ""
-    t = unicodedata.normalize("NFKC", text).replace("\u00A0", " ")
+    t = unicodedata.normalize("NFKC", text).replace("\u00a0", " ")
     t = re.sub(r"\s+", " ", t).strip()
     return t
+
 
 def compute_text_hash(text: str) -> str:
     return hashlib.sha1(_canonicalize_text(text).encode("utf-8")).hexdigest()
 
-def _cache_key(model: str, dim: int, text_hash: str, widen: bool, min_score: float) -> str:
+
+def _cache_key(
+    model: str,
+    dim: int,
+    text_hash: str,
+    widen: bool,
+    min_score: float,
+    articleId: str = "",
+) -> str:
     # include knobs that affect pool composition
-    return f"sug:{model}:{dim}:{text_hash}:{int(widen)}:{min_score:.2f}"
+    return f"sug:{articleId}:{model}:{dim}:{text_hash}:{int(widen)}:{min_score:.2f}"
+
 
 def _encode_cursor(key: str, pos: int) -> str:
     return base64.urlsafe_b64encode(json.dumps({"k": key, "p": pos}).encode()).decode()
+
 
 def _decode_cursor(cur: str) -> tuple[str, int] | None:
     try:
@@ -42,8 +53,11 @@ def _decode_cursor(cur: str) -> tuple[str, int] | None:
     except Exception:
         return None
 
+
 # ---- Public API (keeps your async signature but uses requests under the hood) ----
-async def suggestTags(req: SuggestRequest, suggester: TagSuggester) -> Tuple[List[dict], dict]:
+async def suggestTags(
+    req: SuggestRequest, suggester: TagSuggester
+) -> Tuple[List[dict], dict]:
     """
     Returns (items, meta). Adds Redis caching for the reranked shortlist.
     Supports optional req.offset / req.cursor / req.exclude_slugs / req.widen if present.
@@ -56,7 +70,9 @@ async def suggestTags(req: SuggestRequest, suggester: TagSuggester) -> Tuple[Lis
         if articleId is not None and not articleContent:
             params = {"articleId": articleId, "query": dumps({"_id": articleId})}
             content = await run_in_threadpool(fetch_article_content, params)
-            articleContent = article_text(content, useHeadlines=req.useHeadlines, limit=req.words_limit)
+            articleContent = article_text(
+                content, useHeadlines=req.useHeadlines, limit=req.words_limit
+            )
 
         if not articleContent:
             return SuggestResponse(data=[], meta={})
@@ -84,9 +100,18 @@ async def suggestTags(req: SuggestRequest, suggester: TagSuggester) -> Tuple[Lis
         text_hash = compute_text_hash(articleContent)
         model_name = getattr(suggester, "model_name", "embedder")
         emb_dim = getattr(suggester, "dim", None) or (
-            getattr(suggester, "embeddings", None).shape[1] if getattr(suggester, "embeddings", None) is not None else 0
+            getattr(suggester, "embeddings", None).shape[1]
+            if getattr(suggester, "embeddings", None) is not None
+            else 0
         )
-        cache_key = key_from_cursor or _cache_key(model_name, int(emb_dim), text_hash, widen, float(min_score))
+        cache_key = key_from_cursor or _cache_key(
+            model_name,
+            int(emb_dim),
+            text_hash,
+            widen,
+            float(min_score),
+            articleId or "",
+        )
 
         # Try Redis for cached pool
         pool = None
@@ -102,7 +127,9 @@ async def suggestTags(req: SuggestRequest, suggester: TagSuggester) -> Tuple[Lis
         if pool is None:
             bigK = settings.TOPK_CANDIDATES
             # Loosen threshold a bit if widen=true
-            effective_min = max(0.0, float(min_score) - 0.15) if widen else float(min_score)
+            effective_min = (
+                max(0.0, float(min_score) - 0.15) if widen else float(min_score)
+            )
 
             # Heavy work (sync) is fine; TagSuggester.suggest is CPU-bound
             items, meta = suggester.suggest(
@@ -114,13 +141,21 @@ async def suggestTags(req: SuggestRequest, suggester: TagSuggester) -> Tuple[Lis
 
             # Exclude already shown/disliked if provided
             if exclude_slugs:
-                items = [it for it in items if it.get("slug") and it["slug"] not in exclude_slugs]
+                items = [
+                    it
+                    for it in items
+                    if it.get("slug") and it["slug"] not in exclude_slugs
+                ]
 
             pool = items
 
             # Cache the full pool for pagination
             try:
-                await cache_set_json(cache_key, json.dumps(pool, ensure_ascii=False), ex=settings.CACHE_TTL_SECONDS)
+                await cache_set_json(
+                    cache_key,
+                    json.dumps(pool, ensure_ascii=False),
+                    ex=settings.CACHE_TTL_SECONDS,
+                )
             except Exception as e:
                 log.warning(f"[redis] set failed: {e}")
 
@@ -149,5 +184,6 @@ async def suggestTags(req: SuggestRequest, suggester: TagSuggester) -> Tuple[Lis
         return SuggestResponse(data=[], meta={})
     except Exception as e:
         import traceback
+
         log.error(f"Error --> {traceback.format_exc()}")
         return SuggestResponse(data=[], meta={})

@@ -15,7 +15,7 @@ except Exception:  # pragma: no cover
 from sentence_transformers import SentenceTransformer
 
 from ..config.settings import settings
-from ..utils.helpers import normalize_arabic, keyword_overlap_reason
+from ..utils.helpers import clean_html, normalize_arabic, keyword_overlap_reason
 
 
 # ---- Minimal NumPy IP index with FAISS-like API ----
@@ -35,7 +35,7 @@ class NumpyIPIndex:
         S = np.matmul(Q, self._X.T)  # (q, n)
         # Partial top-k selection
         k = min(k, S.shape[1])
-        idx = np.argpartition(-S, kth=k-1, axis=1)[:, :k]
+        idx = np.argpartition(-S, kth=k - 1, axis=1)[:, :k]
         part = np.take_along_axis(S, idx, axis=1)
         order = np.argsort(-part, axis=1)
         top_idx = np.take_along_axis(idx, order, axis=1)
@@ -55,7 +55,7 @@ class TagRow:
     name: str
     slug: str
     url: Optional[str]
-    description: Optional[str]
+    # description: Optional[str]
 
 
 class TagSuggester:
@@ -76,7 +76,11 @@ class TagSuggester:
     # ---------- public ----------
     def load(self, force_rebuild: bool = False) -> None:
         self._load_models()
-        csv_mtime = os.path.getmtime(settings.TAGS_CSV) if os.path.exists(settings.TAGS_CSV) else 0
+        csv_mtime = (
+            os.path.getmtime(settings.TAGS_CSV)
+            if os.path.exists(settings.TAGS_CSV)
+            else 0
+        )
         cache_ok = (not force_rebuild) and self._cache_is_valid(csv_mtime)
         if cache_ok:
             self._load_cache()
@@ -85,8 +89,42 @@ class TagSuggester:
             self._save_cache(csv_mtime)
         self.last_loaded_ts = time.time()
 
-    def suggest(self, text: str, k: int = 5, min_score: float = 0.2, use_reranker: Optional[bool] = None) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        text_proc = normalize_arabic(text) if settings.NORMALIZE_ARABIC else text
+    def _hybrid_score(self, text: str, tag_text: str, semantic_score: float, alpha=0.8):
+        kw_reason = keyword_overlap_reason(text, tag_text)
+        overlap = 0.0
+        if "Shared terms:" in kw_reason:
+            words = kw_reason.split(":")[1].split(",")
+            overlap = min(0.5, len(words) / 10.0)
+        return alpha * semantic_score + (1 - alpha) * overlap
+
+    def _preprocess_text(self, text: str) -> str:
+        import re
+        from unidecode import unidecode
+
+        # Normalize Arabic if enabled
+        if settings.NORMALIZE_ARABIC:
+            text = normalize_arabic(text)
+
+        # Transliterate mixed scripts (optional, keeps embeddings cleaner)
+        text = unidecode(text)
+
+        # Remove URLs, HTML, emoji, and excessive punctuation
+        text = re.sub(r"http\S+|www\S+|<[^>]+>|[^\w\s]", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        text = clean_html(text)
+
+        return text
+
+    def suggest(
+        self,
+        text: str,
+        k: int = 5,
+        min_score: float = 0.2,
+        use_reranker: Optional[bool] = None,
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+
+        text_proc = self._preprocess_text(text)
+
         qstr = f"query: {text_proc}" if "e5" in self.model_name.lower() else text_proc
         qv = self._embed_texts([qstr]).astype("float32")
 
@@ -94,7 +132,15 @@ class TagSuggester:
             # model was changed since the last build → rebuild index now
             self.reload()
             # re-embed the query with the current model
-            qv = self._embed_texts([text_proc if "e5" not in self.model_name.lower() else f"query: {text_proc}"]).astype("float32")
+            qv = self._embed_texts(
+                [
+                    (
+                        text_proc
+                        if "e5" not in self.model_name.lower()
+                        else f"query: {text_proc}"
+                    )
+                ]
+            ).astype("float32")
             if faiss is not None:
                 faiss.normalize_L2(qv)
             else:
@@ -121,19 +167,28 @@ class TagSuggester:
             ttext = self.tag_texts[idx]
             if score < min_score:
                 continue
+
+            score = self._hybrid_score(text_proc, ttext, score)
             reason = keyword_overlap_reason(text_proc, ttext)
-            items.append({
-                "slug": tag.slug,
-                "name": tag.name,
-                "url": tag.url,
-                "description": tag.description,
-                "score": float(round(score, 4)),
-                "reason": reason,
-            })
+            items.append(
+                {
+                    "slug": tag.slug,
+                    "name": tag.name,
+                    "url": tag.url,
+                    "description": "",  # tag.description,
+                    "score": float(round(score, 4)),
+                    "reason": reason,
+                }
+            )
         # Optional rerank
-        use_ce = settings.USE_CROSS_ENCODER if use_reranker is None else bool(use_reranker)
-        if use_ce and items:
+        use_ce = (
+            settings.USE_CROSS_ENCODER if use_reranker is None else bool(use_reranker)
+        )
+
+        avg_score = np.mean([it["score"] for it in items]) if items else 0
+        if use_ce and items and avg_score < 0.6:
             items = self._rerank_with_cross_encoder(text_proc, items)
+
         return items[:k], {
             "model": self.model_name,
             "count": len(self.tags),
@@ -152,7 +207,10 @@ class TagSuggester:
         if settings.USE_CROSS_ENCODER and self.cross_encoder is None:
             try:
                 from sentence_transformers import CrossEncoder
-                self.cross_encoder = CrossEncoder(settings.CROSS_ENCODER_MODEL, device=self.device)
+
+                self.cross_encoder = CrossEncoder(
+                    settings.CROSS_ENCODER_MODEL, device=self.device
+                )
             except Exception:
                 self.cross_encoder = None
 
@@ -178,7 +236,6 @@ class TagSuggester:
         except Exception:
             return False
         return True
-
 
     def _load_cache(self):
         if faiss is not None and os.path.exists(self.index_path):
@@ -224,13 +281,17 @@ class TagSuggester:
                 name=r["name"],
                 slug=r["slug"],
                 url=r["url"] or None,
-                description=r["description"] or None,
+                description="",  # r["description"] or None,
             )
             self.tags.append(t)
 
         # rest remains the same
         self.tag_texts = [self._render_tag_text(t) for t in self.tags]
-        texts = [normalize_arabic(t) for t in self.tag_texts] if settings.NORMALIZE_ARABIC else self.tag_texts
+        texts = (
+            [normalize_arabic(t) for t in self.tag_texts]
+            if settings.NORMALIZE_ARABIC
+            else self.tag_texts
+        )
 
         X = self._embed_texts(texts).astype("float32")
         if faiss is not None:
@@ -254,13 +315,18 @@ class TagSuggester:
                 pass
         np.save(self.emb_path, self.embeddings)
         with open(self.meta_path, "w", encoding="utf-8") as f:
-            json.dump({
-                "tags": [t.__dict__ for t in self.tags],
-                "tag_texts": self.tag_texts,
-                "csv_mtime": csv_mtime,
-                "model": self.model_name,
-                "dim": int(self.embeddings.shape[1]),
-            }, f, ensure_ascii=False, indent=2)
+            json.dump(
+                {
+                    "tags": [t.__dict__ for t in self.tags],
+                    "tag_texts": self.tag_texts,
+                    "csv_mtime": csv_mtime,
+                    "model": self.model_name,
+                    "dim": int(self.embeddings.shape[1]),
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
 
     def _render_tag_text(self, t: TagRow) -> str:
         parts = [t.name]
@@ -270,17 +336,26 @@ class TagSuggester:
             parts.append(f"slug:{t.slug}")
         if t.url:
             parts.append(f"url:{t.url}")
-        text= " — ".join(parts)
+        text = " — ".join(parts)
         return f"passage: {text}" if "e5" in self.model_name.lower() else text
 
     def _embed_texts(self, texts: List[str]) -> np.ndarray:
-        embs = self.embedder.encode(texts, convert_to_numpy=True, normalize_embeddings=False, batch_size=64, show_progress_bar=False)
+        embs = self.embedder.encode(
+            texts,
+            convert_to_numpy=True,
+            normalize_embeddings=False,
+            batch_size=64,
+            show_progress_bar=False,
+        )
         return embs
 
-    def _rerank_with_cross_encoder(self, query_text: str, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _rerank_with_cross_encoder(
+        self, query_text: str, items: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         if self.cross_encoder is None:
             return items
         from sentence_transformers.util import batch_to_device
+
         pairs = [(query_text, self._item_text(i)) for i in items]
         scores = self.cross_encoder.predict(pairs).tolist()
         for it, sc in zip(items, scores):

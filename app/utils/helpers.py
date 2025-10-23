@@ -1,8 +1,9 @@
 import re
 import copy
 
+
 _ARABIC_DIACRITICS = re.compile(r"[\u0610-\u061A\u064B-\u065F\u06D6-\u06ED]")
-_CLEANR = re.compile('<.*?>') 
+_CLEANR = re.compile("<.*?>")
 
 
 # Basic Arabic normalization (optional but helpful in bilingual newsrooms)
@@ -17,27 +18,46 @@ def normalize_arabic(text: str) -> str:
     t = t.replace("ؤ", "و").replace("ئ", "ي")
     return t
 
+
 def clean_html(text: str) -> str:
     if not text:
         return text
     return _CLEANR.sub("", text)
 
+
 # Light keyword overlap heuristic for "reasons"
 def keyword_overlap_reason(text: str, tag_text: str, top_n: int = 5) -> str:
     import re
+
+    from nltk.corpus import stopwords
+    import nltk
+
+    # Try to download stopwords if not found
+    try:
+        STOPWORDS = set(stopwords.words("english"))
+    except LookupError:
+        nltk.download("stopwords")
+        STOPWORDS = set(stopwords.words("english"))
+
+    # Use Unicode-aware tokenization
     tok = lambda s: [w for w in re.findall(r"[\p{L}\p{Nd}]{3,}", s, flags=re.UNICODE)]
     try:
         from regex import findall  # optional: if regex module installed
+
         tok = lambda s: [w for w in findall(r"[\p{L}\p{Nd}]{3,}", s)]
     except Exception:
         pass
+
+    # Tokenize
     a = set(w.lower() for w in tok(text))
     b = set(w.lower() for w in tok(tag_text))
-    inter = list(a.intersection(b))[:top_n]
-    if inter:
-        return f"Shared terms: {', '.join(inter)}"
-    return "Semantic similarity to tag description"
 
+    # Intersection with stopword filtering and basic rules
+    inter = [w for w in a.intersection(b) if w not in STOPWORDS and len(w) > 2]
+
+    if inter:
+        return f"Shared terms: {', '.join(inter[:top_n])}"
+    return "Semantic similarity to tag description"
 
 
 def deep_merge(a, b, unique_key="slug"):
@@ -58,7 +78,7 @@ def deep_merge(a, b, unique_key="slug"):
 
     elif isinstance(a, list) and isinstance(b, list):
         # If list of dicts -> deduplicate by `unique_key`
-        if all(isinstance(x, dict) for x in a+b):
+        if all(isinstance(x, dict) for x in a + b):
             seen = {}
             for item in a + b:
                 key = item.get(unique_key) if isinstance(item, dict) else None
@@ -76,7 +96,6 @@ def deep_merge(a, b, unique_key="slug"):
         return copy.deepcopy(b)
 
 
-
 def mmr_diversify(items, id_fn, score_fn, alpha=0.8):
     # items: list of dicts; returns a re-ordered list
     selected, seen = [], set()
@@ -88,8 +107,19 @@ def mmr_diversify(items, id_fn, score_fn, alpha=0.8):
             # penalize items too similar by slug prefix/overlap (cheap heuristic)
             def penalty(x):
                 slug = id_fn(x)
-                return max(1.0 if any(slug.startswith(id_fn(s)[:5]) for s in selected) else 0.0, 0.0)
-            cand.sort(key=lambda x: alpha*score_fn(x) - (1-alpha)*penalty(x), reverse=True)
+                return max(
+                    (
+                        1.0
+                        if any(slug.startswith(id_fn(s)[:5]) for s in selected)
+                        else 0.0
+                    ),
+                    0.0,
+                )
+
+            cand.sort(
+                key=lambda x: alpha * score_fn(x) - (1 - alpha) * penalty(x),
+                reverse=True,
+            )
             pick = cand.pop(0)
         if id_fn(pick) in seen:
             continue
@@ -98,4 +128,3 @@ def mmr_diversify(items, id_fn, score_fn, alpha=0.8):
         if len(selected) >= len(items):
             break
     return selected
-    
