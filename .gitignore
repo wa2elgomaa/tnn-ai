@@ -58,4 +58,4 @@ ehthumbs_vista.db
 .ipynb_checkpoints/
 
 storage/
-models/
+/models/

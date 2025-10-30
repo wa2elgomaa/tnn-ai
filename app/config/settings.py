@@ -10,7 +10,6 @@ load_dotenv(ROOT / ".env", override=False)
 # 2) current working directory fallback (e.g., when running from another path)
 load_dotenv(override=False)
 
-
 class Settings(BaseModel):
     CDN_DOMAIN: str = os.getenv("CDN_DOMAIN")
     TAGS_CSV: str = os.getenv("TAGS_CSV")

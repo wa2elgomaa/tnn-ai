@@ -55,7 +55,7 @@ class TagRow:
     name: str
     slug: str
     url: Optional[str]
-    # description: Optional[str]
+    description: Optional[str]
 
 
 class TagSuggester:
@@ -251,61 +251,64 @@ class TagSuggester:
 
     def _build_from_csv(self):
         print(f"Loading tags from {os.path.curdir}")
-        if not os.path.exists(settings.TAGS_CSV):
-            raise FileNotFoundError(f"CSV not found at {settings.TAGS_CSV}")
-        # read CSV robustly: treat everything as str & preserve empty strings
-        df = pd.read_csv(
-            settings.TAGS_CSV,
-            dtype=str,
-            keep_default_na=False,
-            encoding="utf-8-sig",
-        )
-        # ensure required columns
-        for col in ("name", "slug", "url", "description"):
-            if col not in df.columns:
-                raise ValueError(f"Missing column '{col}' in CSV")
-        # strip whitespace
-        df = df.applymap(lambda x: x.strip() if isinstance(x, str) else "")
-        # drop rows where name or slug is blank
-        before = len(df)
-        df = df[(df["name"] != "") & (df["slug"] != "")]
-        after = len(df)
-        dropped = before - after
-        if dropped > 0:
-            print(f"[build] Dropped {dropped} tag rows with empty name/slug")
-
-        # now build TagRow list
-        self.tags = []
-        for _, r in df.iterrows():
-            t = TagRow(
-                name=r["name"],
-                slug=r["slug"],
-                url=r["url"] or None,
-                description="",  # r["description"] or None,
+        try:
+            if not os.path.exists(settings.TAGS_CSV):
+                raise FileNotFoundError(f"CSV not found at {settings.TAGS_CSV}")
+            # read CSV robustly: treat everything as str & preserve empty strings
+            df = pd.read_csv(
+                settings.TAGS_CSV,
+                dtype=str,
+                keep_default_na=False,
+                encoding="utf-8-sig",
             )
-            self.tags.append(t)
+            # ensure required columns
+            for col in ("name", "slug", "url", "description"):
+                if col not in df.columns:
+                    raise ValueError(f"Missing column '{col}' in CSV")
+            # strip whitespace
+            df = df.applymap(lambda x: x.strip() if isinstance(x, str) else "")
+            # drop rows where name or slug is blank
+            before = len(df)
+            df = df[(df["name"] != "") & (df["slug"] != "")]
+            after = len(df)
+            dropped = before - after
+            if dropped > 0:
+                print(f"[build] Dropped {dropped} tag rows with empty name/slug")
 
-        # rest remains the same
-        self.tag_texts = [self._render_tag_text(t) for t in self.tags]
-        texts = (
-            [normalize_arabic(t) for t in self.tag_texts]
-            if settings.NORMALIZE_ARABIC
-            else self.tag_texts
-        )
+            # now build TagRow list
+            self.tags = []
+            for _, r in df.iterrows():
+                t = TagRow(
+                    name=r["name"],
+                    slug=r["slug"],
+                    url=r["url"] or None,
+                    description="",  # r["description"] or None,
+                )
+                self.tags.append(t)
 
-        X = self._embed_texts(texts).astype("float32")
-        if faiss is not None:
-            faiss.normalize_L2(X)
-        else:
-            _normalize_L2_inplace(X)
-        self.embeddings = X
+            # rest remains the same
+            self.tag_texts = [self._render_tag_text(t) for t in self.tags]
+            texts = (
+                [normalize_arabic(t) for t in self.tag_texts]
+                if settings.NORMALIZE_ARABIC
+                else self.tag_texts
+            )
 
-        if faiss is not None:
-            self.index = faiss.IndexFlatIP(X.shape[1])
-            self.index.add(X)
-        else:
-            self.index = NumpyIPIndex(X.shape[1])
-            self.index.add(X)
+            X = self._embed_texts(texts).astype("float32")
+            if faiss is not None:
+                faiss.normalize_L2(X)
+            else:
+                _normalize_L2_inplace(X)
+            self.embeddings = X
+
+            if faiss is not None:
+                self.index = faiss.IndexFlatIP(X.shape[1])
+                self.index.add(X)
+            else:
+                self.index = NumpyIPIndex(X.shape[1])
+                self.index.add(X)
+        except Exception as e:
+            print(f"Error building from CSV: {e}")
 
     def _save_cache(self, csv_mtime: float):
         if faiss is not None and self.index is not None:

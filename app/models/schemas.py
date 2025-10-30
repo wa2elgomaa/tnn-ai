@@ -1,5 +1,5 @@
+from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
-from typing import List, Literal, Optional, Any, Dict, Union
 
 
 class SuggestRequest(BaseModel):
@@ -9,7 +9,9 @@ class SuggestRequest(BaseModel):
     useHeadlines: Optional[bool] = Field(
         False, description="Use headlines instead of body"
     )
-    words_limit: Optional[int] = Field(False, description="Use article body words count")
+    words_limit: Optional[int] = Field(
+        False, description="Use article body words count"
+    )
     articleId: str = Field(None, description="Article id")
     limit: int = Field(5, ge=1, le=50, description="How many tag suggestions to return")
     min_score: float = Field(
@@ -22,6 +24,22 @@ class SuggestRequest(BaseModel):
     offset: Optional[int] = 0  # fallback if you prefer simple offset
     widen: Optional[bool] = False  # relax filters / boost lexical if true
     exclude_slugs: Optional[list[str]] = []  # already shown or disliked in-session
+
+
+class RelatedArticle(BaseModel):
+    article_id: str
+    title: str
+    score: float
+    url: Optional[str] = None
+
+
+class RelatedResponse(BaseModel):
+    articles: List[RelatedArticle]
+
+
+class VideoScriptChunk(BaseModel):
+    phase: str
+    content: str
 
 
 class TagOut(BaseModel):

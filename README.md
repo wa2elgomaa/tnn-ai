@@ -36,6 +36,8 @@ pip install -r requirements.txt
 # UVICORN_NO_UVLOOP=1 UVICORN_NO_HTTP_TOOLS=1 TOKENIZERS_PARALLELISM=false \
 # HF_HUB_OFFLINE=1 EMBEDDING_MODEL=./models/paraphrase-multilingual-MiniLM-L12-v2 \
 python -m uvicorn app.main:app --port 8000 --loop asyncio --http h11 --workers 1
+uvicorn app.main:app --port 8000 --reload --loop asyncio --http h11
+uvicorn app.main:app --port 8000 --reload --loop asyncio --http h11 --workers 1
 ```
 
 

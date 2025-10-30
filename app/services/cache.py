@@ -5,7 +5,7 @@ from typing import Any, Optional
 from redis import asyncio as aioredis
 from ..config.settings import settings
 
-REDIS_URL = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/0"
+REDIS_URL = f"redis://:{settings.REDIS_PASSWORD}@{settings.REDIS_HOST}:{settings.REDIS_PORT}/0"
 CACHE_TTL = int(settings.CACHE_TTL_SECONDS if settings.CACHE_TTL_SECONDS else "300")
 
 # Create a global client (connection pool under the hood)
@@ -26,6 +26,7 @@ async def init_cache() -> None:
         # Quick ping to fail fast if unreachable (don’t crash app if optional)
         try:
             await redis.ping()
+            print("[redis] ping successful")
         except Exception as e:
             # Log and keep going; your app can work without cache
             print(f"[redis] ping failed: {e}")
