@@ -10,6 +10,7 @@ load_dotenv(ROOT / ".env", override=False)
 # 2) current working directory fallback (e.g., when running from another path)
 load_dotenv(override=False)
 
+
 class Settings(BaseModel):
     CDN_DOMAIN: str = os.getenv("CDN_DOMAIN")
     TAGS_CSV: str = os.getenv("TAGS_CSV")
@@ -17,6 +18,12 @@ class Settings(BaseModel):
     CHAT_MODEL: str = os.getenv("CHAT_MODEL")
     COMPLETION_MODEL: str = os.getenv("COMPLETION_MODEL")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL")
+    VLLM_API_BASE: str = os.getenv("VLLM_API_BASE")
+    VLLM_MODEL_ID: str = os.getenv("VLLM_MODEL_ID")
+    VLLM_PORT: int = os.getenv("VLLM_PORT", 8000)
+    VLLM_HOST: str = os.getenv("VLLM_HOST", "0.0.0.0")
+    VLLM_GPU_MEMORY_UTILIZATION: float = os.getenv("VLLM_GPU_MEMORY_UTILIZATION", 0.9)
+    VLLM_MAX_NUM_BATCHED_TOKENS: int = os.getenv("VLLM_MAX_NUM_BATCHED_TOKENS", 8192)
     TOKENIZERS_PARALLELISM: bool = (
         os.getenv("TOKENIZERS_PARALLELISM", "false").lower() == "true"
     )

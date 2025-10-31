@@ -3,7 +3,7 @@ from fastapi import APIRouter, FastAPI, Depends
 from typing import Dict, Optional
 import time
 
-from ...config.settings import settings
+from ...utils.tagger import TagSuggester
 from ...models.schemas import SuggestRequest, SuggestResponse, TagOut
 from ...services.tags import TagService
 from ...services.cache import init_cache, close_cache
@@ -11,9 +11,12 @@ from ...core.logger import get_logger
 
 logger = get_logger(__name__)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    tagger = TagSuggester()
+    tagger.load()
     await init_cache()
     yield
     # Shutdown (nothing to clean up explicitly)
@@ -70,9 +73,7 @@ async def suggest(
         exclude_slugs=exclude_slugs,
     )
     items, meta = await service.suggestTags(req)
-    return SuggestResponse(
-        data=[TagOut(**i) for i in items], meta=meta
-    )
+    return SuggestResponse(data=[TagOut(**i) for i in items], meta=meta)
 
 
 @tags_router.post("/reload")

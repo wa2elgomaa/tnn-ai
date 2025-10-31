@@ -9,8 +9,8 @@ from app.models.schemas import APIResponse, ChatRequest
 
 async def preload_action():
     try:
-        chat_service = ChatService()
-        chat_service.preload_models()
+        # chat_service = ChatService()
+        # chat_service.preload_models()
         print("✅ Chat service started successfully.")
     except Exception as e:
         print(f"⚠️ Chat service failed to start: {e}")

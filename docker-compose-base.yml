@@ -108,6 +108,30 @@ services:
       retries: 3
       start_period: 10s
 
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-server
+    restart: always
+    ports:
+      - "8081:8000" # host:container (vLLM defaults to 8000)
+    environment:
+      # Load environment variables from .env file automatically
+      VLLM_USE_V1: "1" # ensure correct async engine
+      TRANSFORMERS_OFFLINE: "0"
+      HUGGING_FACE_HUB_TOKEN: ${HF_HUB_TOKEN}
+      VLLM_LOGGING_LEVEL: ${VLLM_LOGGING_LEVEL}
+      VLLM_USE_CPU: "1"
+    volumes:
+      - ./models:/models # local model directory
+      - ~/.cache/huggingface:/root/.cache/huggingface # Hugging Face cache
+    command: >
+      --model ${VLLM_MODEL_ID}
+      --port ${VLLM_PORT}
+      --host ${VLLM_HOST}
+      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION}
+      --max-num-batched-tokens ${VLLM_MAX_NUM_BATCHED_TOKENS}
+
+
   ollama: # optional local LLM support
     platform: linux/amd64
     image: ollama/ollama

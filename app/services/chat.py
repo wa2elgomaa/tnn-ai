@@ -38,8 +38,6 @@ class ChatService:
         self._model: Optional[AutoModelForCausalLM] = None
         self._model_loaded = False
 
-        self.preload_models()
-
     def preload_models(self):
         """Lazy-load the completion model and tokenizer."""
         if self._model_loaded:
@@ -155,7 +153,7 @@ class ChatService:
         """
         try:
             # Ensure model is loaded
-            self.preload_models()
+            # self.preload_models()
 
             # Work with a copy of messages to avoid mutation
             enriched_messages = messages.copy()

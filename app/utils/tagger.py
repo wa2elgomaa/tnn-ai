@@ -250,7 +250,6 @@ class TagSuggester:
             self.index.add(self.embeddings)
 
     def _build_from_csv(self):
-        print(f"Loading tags from {os.path.curdir}")
         try:
             if not os.path.exists(settings.TAGS_CSV):
                 raise FileNotFoundError(f"CSV not found at {settings.TAGS_CSV}")
@@ -266,7 +265,7 @@ class TagSuggester:
                 if col not in df.columns:
                     raise ValueError(f"Missing column '{col}' in CSV")
             # strip whitespace
-            df = df.applymap(lambda x: x.strip() if isinstance(x, str) else "")
+            df = df.map(lambda x: x.strip() if isinstance(x, str) else "")
             # drop rows where name or slug is blank
             before = len(df)
             df = df[(df["name"] != "") & (df["slug"] != "")]

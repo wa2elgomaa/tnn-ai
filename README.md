@@ -19,6 +19,14 @@ huggingface-cli download intfloat/e5-base-v2  --local-dir ./models/intfloat/e5-b
 huggingface-cli download cross-encoder/ms-marco-MiniLM-L-6-v2  --local-dir ./models/cross-encoder/ms-marco-MiniLM-L-6-v2
 ```
 
+# deploy local models to vllm
+```bash
+python -m vllm.entrypoints.api_server --model ./models/openai/gpt-oss-120b --port 8081
+python -m vllm.entrypoints.api_server --model ./models/openai/gpt-oss-20b --port 8081
+vllm serve "openai/gpt-oss-20b"
+
+```
+
 # Using Ollama for GPT-OSS models 
 ```bash
 docker exec tnn-ai-ollama-1 ollama pull openai/gpt-oss-20b:Q4_K_M
