@@ -25,6 +25,7 @@ share/python-wheels/
 
 # Environments
 .env
+.env.*
 .venv
 env/
 venv/
