@@ -55,7 +55,7 @@ class TagRow:
     name: str
     slug: str
     url: Optional[str]
-    # description: Optional[str]
+    description: Optional[str]
 
 
 class TagSuggester:
@@ -83,10 +83,18 @@ class TagSuggester:
         )
         cache_ok = (not force_rebuild) and self._cache_is_valid(csv_mtime)
         if cache_ok:
+            print(f"[load] Loading from cache...")
             self._load_cache()
         else:
+            print(f"[load] Building from CSV...")
             self._build_from_csv()
             self._save_cache(csv_mtime)
+
+        # ADD DEBUG OUTPUT HERE
+        print(f"[load] Successfully loaded {len(self.tags)} tags")
+        if self.tags:
+            print(f"[load] First 3 tags: {[t.name for t in self.tags[:3]]}")
+
         self.last_loaded_ts = time.time()
 
     def _hybrid_score(self, text: str, tag_text: str, semantic_score: float, alpha=0.8):
@@ -130,6 +138,7 @@ class TagSuggester:
 
         if self.embeddings is None or qv.shape[1] != self.embeddings.shape[1]:
             # model was changed since the last build → rebuild index now
+            print("[suggest] Embeddings dimension mismatch, rebuilding index...")
             self.reload()
             # re-embed the query with the current model
             qv = self._embed_texts(
@@ -203,15 +212,30 @@ class TagSuggester:
     # ---------- internal ----------
     def _load_models(self):
         if self.embedder is None:
+            print(f"[models] Loading embedding model: {self.model_name}")
+
+            # Set environment variables to prevent tokenizer hangs
+            os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+            # Force PyTorch to use single thread for tokenization
+            import torch
+
+            torch.set_num_threads(1)
+
             self.embedder = SentenceTransformer(self.model_name, device=self.device)
+            print(f"[models] Embedding model loaded successfully")
+
         if settings.USE_CROSS_ENCODER and self.cross_encoder is None:
             try:
                 from sentence_transformers import CrossEncoder
 
+                print(f"[models] Loading cross-encoder: {settings.CROSS_ENCODER_MODEL}")
                 self.cross_encoder = CrossEncoder(
                     settings.CROSS_ENCODER_MODEL, device=self.device
                 )
-            except Exception:
+                print(f"[models] Cross-encoder loaded successfully")
+            except Exception as e:
+                print(f"[models] Failed to load cross-encoder: {e}")
                 self.cross_encoder = None
 
     def _cache_is_valid(self, csv_mtime: float) -> bool:
@@ -219,22 +243,29 @@ class TagSuggester:
         if getattr(faiss, "__name__", None):  # if FAISS is available
             paths.append(self.index_path)
         if not all(os.path.exists(p) for p in paths):
+            print(f"[cache] Cache files missing")
             return False
 
         # csv must not be newer than cache
         cache_mtime = min(os.path.getmtime(p) for p in paths)
         if cache_mtime < csv_mtime:
+            print(f"[cache] CSV is newer than cache")
             return False
 
         # model / dim must match
         try:
             meta = json.load(open(self.meta_path, "r", encoding="utf-8"))
             if meta.get("model") != self.model_name:
+                print(f"[cache] Model changed: {meta.get('model')} → {self.model_name}")
                 return False
             if "dim" not in meta:
+                print(f"[cache] No dimension info in cache")
                 return False
-        except Exception:
+        except Exception as e:
+            print(f"[cache] Failed to read metadata: {e}")
             return False
+
+        print(f"[cache] Cache is valid")
         return True
 
     def _load_cache(self):
@@ -250,9 +281,11 @@ class TagSuggester:
             self.index.add(self.embeddings)
 
     def _build_from_csv(self):
-        print(f"Loading tags from {os.path.curdir}")
         if not os.path.exists(settings.TAGS_CSV):
             raise FileNotFoundError(f"CSV not found at {settings.TAGS_CSV}")
+
+        print(f"[build] Reading CSV from {settings.TAGS_CSV}")
+
         # read CSV robustly: treat everything as str & preserve empty strings
         df = pd.read_csv(
             settings.TAGS_CSV,
@@ -260,12 +293,17 @@ class TagSuggester:
             keep_default_na=False,
             encoding="utf-8-sig",
         )
+
+        print(f"[build] CSV loaded: {len(df)} rows, columns: {list(df.columns)}")
+
         # ensure required columns
         for col in ("name", "slug", "url", "description"):
             if col not in df.columns:
                 raise ValueError(f"Missing column '{col}' in CSV")
+
         # strip whitespace
-        df = df.applymap(lambda x: x.strip() if isinstance(x, str) else "")
+        df = df.map(lambda x: x.strip() if isinstance(x, str) else "")
+
         # drop rows where name or slug is blank
         before = len(df)
         df = df[(df["name"] != "") & (df["slug"] != "")]
@@ -285,6 +323,8 @@ class TagSuggester:
             )
             self.tags.append(t)
 
+        print(f"[build] Created {len(self.tags)} TagRow objects")
+
         # rest remains the same
         self.tag_texts = [self._render_tag_text(t) for t in self.tags]
         texts = (
@@ -293,13 +333,16 @@ class TagSuggester:
             else self.tag_texts
         )
 
+        print(f"[build] Embedding {len(texts)} tag texts...")
         X = self._embed_texts(texts).astype("float32")
+
         if faiss is not None:
             faiss.normalize_L2(X)
         else:
             _normalize_L2_inplace(X)
         self.embeddings = X
 
+        print(f"[build] Creating search index...")
         if faiss is not None:
             self.index = faiss.IndexFlatIP(X.shape[1])
             self.index.add(X)
@@ -308,11 +351,13 @@ class TagSuggester:
             self.index.add(X)
 
     def _save_cache(self, csv_mtime: float):
+        print(f"[cache] Saving cache files...")
         if faiss is not None and self.index is not None:
             try:
                 faiss.write_index(self.index, self.index_path)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[cache] Failed to save FAISS index: {e}")
+
         np.save(self.emb_path, self.embeddings)
         with open(self.meta_path, "w", encoding="utf-8") as f:
             json.dump(
@@ -327,6 +372,7 @@ class TagSuggester:
                 ensure_ascii=False,
                 indent=2,
             )
+        print(f"[cache] Cache saved successfully")
 
     def _render_tag_text(self, t: TagRow) -> str:
         parts = [t.name]
@@ -340,14 +386,27 @@ class TagSuggester:
         return f"passage: {text}" if "e5" in self.model_name.lower() else text
 
     def _embed_texts(self, texts: List[str]) -> np.ndarray:
-        embs = self.embedder.encode(
-            texts,
-            convert_to_numpy=True,
-            normalize_embeddings=False,
-            batch_size=64,
-            show_progress_bar=False,
-        )
-        return embs
+        print(f"[embed] Embedding {len(texts)} texts...")
+
+        # Force single-threaded processing to avoid hangs
+        import torch
+
+        original_num_threads = torch.get_num_threads()
+        torch.set_num_threads(1)
+
+        try:
+            embs = self.embedder.encode(
+                texts,
+                convert_to_numpy=True,
+                normalize_embeddings=False,
+                batch_size=32,  # Reduced batch size
+                show_progress_bar=True,  # Show progress to see where it hangs
+                device=self.device,
+            )
+            print(f"[embed] Embedding complete. Shape: {embs.shape}")
+            return embs
+        finally:
+            torch.set_num_threads(original_num_threads)
 
     def _rerank_with_cross_encoder(
         self, query_text: str, items: List[Dict[str, Any]]

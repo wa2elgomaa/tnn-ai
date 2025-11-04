@@ -19,6 +19,14 @@ huggingface-cli download intfloat/e5-base-v2  --local-dir ./models/intfloat/e5-b
 huggingface-cli download cross-encoder/ms-marco-MiniLM-L-6-v2  --local-dir ./models/cross-encoder/ms-marco-MiniLM-L-6-v2
 ```
 
+# deploy local models to vllm
+```bash
+python -m vllm.entrypoints.api_server --model ./models/openai/gpt-oss-120b --port 8081
+python -m vllm.entrypoints.api_server --model ./models/openai/gpt-oss-20b --port 8081
+vllm serve "openai/gpt-oss-20b"
+
+```
+
 # Using Ollama for GPT-OSS models 
 ```bash
 docker exec tnn-ai-ollama-1 ollama pull openai/gpt-oss-20b:Q4_K_M
@@ -36,6 +44,8 @@ pip install -r requirements.txt
 # UVICORN_NO_UVLOOP=1 UVICORN_NO_HTTP_TOOLS=1 TOKENIZERS_PARALLELISM=false \
 # HF_HUB_OFFLINE=1 EMBEDDING_MODEL=./models/paraphrase-multilingual-MiniLM-L12-v2 \
 python -m uvicorn app.main:app --port 8000 --loop asyncio --http h11 --workers 1
+uvicorn app.main:app --port 8000 --reload --loop asyncio --http h11
+uvicorn app.main:app --port 8000 --reload --loop asyncio --http h11 --workers 1
 ```
 
 

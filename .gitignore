@@ -25,6 +25,7 @@ share/python-wheels/
 
 # Environments
 .env
+.env.*
 .venv
 env/
 venv/
@@ -58,4 +59,4 @@ ehthumbs_vista.db
 .ipynb_checkpoints/
 
 storage/
-models/
+/models/

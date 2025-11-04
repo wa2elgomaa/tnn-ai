@@ -2,10 +2,17 @@ from fastapi import APIRouter
 from pathlib import Path
 import json, time
 
-from ..config.settings import settings
-from ..config.models import APIResponse, FeedbackBatch
+from ...config.settings import settings
+from ...models.schemas import APIResponse, FeedbackBatch
 
-feedback_router = APIRouter(prefix="/feedback")
+async def preload_action():
+    try:
+        print("✅ Feedback preloaded successfully.")
+    except Exception as e:
+        print(f"⚠️ Preload failed: {e}")
+
+
+feedback_router = APIRouter(on_startup=[preload_action])
 FEEDBACK_FILE = Path(settings.STORAGE_DIR) / "feedback.jsonl"
 
 
@@ -22,7 +29,3 @@ async def feedback(articleId: str, batch: FeedbackBatch):
             json.dump(row, f, ensure_ascii=False)
             f.write("\n")
     return {"status": "ok", "count": len(batch.items)}
-
-
-def get():
-    return feedback_router
