@@ -119,24 +119,33 @@ class CMSService:
                 for tag in tags:
                     tag_name = tag.get("text")
                     tag_slug = tag.get("slug")
-                    if not tag_name or not tag_slug or tag_slug in tags_inserted:
+
+                    if not tag_name or not tag_slug:
                         continue
 
-                    # Use regex with word boundaries for exact match (case-insensitive)
+                    # Don't re-insert same tag twice
+                    if tag_slug in tags_inserted:
+                        continue
+
+                    # Case-insensitive exact match with word boundaries
                     pattern = re.compile(rf"\b({re.escape(tag_name)})\b", re.IGNORECASE)
 
-                    # Replace only the first match
-                    new_text, count = pattern.subn(
-                        rf'<a href="{settings.CDN_DOMAIN}/tags/{tag_slug}" class="tag-link">\1</a>',
-                        text,
-                        count=1,
-                    )
+                    def repl(match):
+                        original_text = match.group(1)
+                        return (
+                            f'<a href="{settings.CDN_DOMAIN}/tags/{tag_slug}" '
+                            f'class="tag-link">{original_text}</a>'
+                        )
+
+                    new_text, count = pattern.subn(repl, text, 1)
 
                     if count > 0:
-                        text = new_text  # Update text only if we made a substitution
+                        # Update text because we inserted a tag
+                        text = new_text
+                        # Mark this tag as used so we don't insert it again
+                        tags_inserted.append(tag_slug)
 
-                elem["content"] = text  # Update back to content_elements
-                tags_inserted.append(tag_slug)
+                elem["content"] = text
 
         return articleBody
 
