@@ -128,7 +128,10 @@ class CMSService:
                         continue
 
                     # Case-insensitive exact match with word boundaries
-                    pattern = re.compile(rf"\b({re.escape(tag_name)})\b", re.IGNORECASE)
+                    pattern = re.compile(
+                        rf"\b({re.escape(tag_name)})\b(?!(?:(?!</a>).)*</a>)",
+                        re.IGNORECASE,
+                    )
 
                     def repl(match):
                         original_text = match.group(1)
